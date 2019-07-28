@@ -58,9 +58,10 @@ Docker镜像是由文件系统叠加而成。最底端是一个文件引导系�
 5. ```docker image prune``` 删除unused镜像
 6. ```docker push```  把镜像提交到仓库
 7. ```docker inspect``` 查看详细信息
+   ```docker inspect -f '{{.ContainerConfig.Hostname}}' $(docker images -aq)``` Go语言的模板语法可以用于某些命令  
+   ```docker inspect -f '{{.LogPath}}' $(docker ps -aq)```
 
 ## Docker container
-### What is container
 容器（Container）
 
 容器是Docker镜像创建的实例，是静态镜像的运行时的实体。其本质是一个与宿主机系统共享内核但与系统中的其他进程资源相隔离的进程，它可以被启动、停止、删除。容器中会运行特定的应用，包含代码和相关的依赖文件。每个运行着的容器都有一个可写层（writable layer,也称为容器层 container layer），它位于若干只读层之上。运行时的所有变化，包括对文件的写和更新，都会保存在这个层中。
@@ -72,7 +73,7 @@ Docker镜像是由文件系统叠加而成。最底端是一个文件引导系�
    ```-p -P``` 指定端口
    ```-v``` 使用持久化的存储
 2. ```docker ps``` 查看所有的容器 和 ```docker container ls```同效
-3. ```docker attach``` 
+3. ```docker attach``` 重新附着容器
 4. ```docker exec``` 在容器内容启动新进程
 5. 生命周期管理， 暂停，恢复，停止，启动 pause, unpause, stop, start
 6. ```docker logs``` 查看log
@@ -90,30 +91,56 @@ Docker镜像是由文件系统叠加而成。最底端是一个文件引导系�
 
 [IBM CIO repository](https://pages.github.ibm.com/CIOCloud/cio-blog/#/artifactory/?id=building-and-pushing-image)
 # Docker practice
+
+## Build your own image
+### Docker commit  
+  ```docker commit -m "commit test" container-id image-name:tag```  
+  不推荐使用这种方式, 因为难以复用, 不能很好的和其它方式兼容;
+  
+### Docker build & Dockerfile
+Dockerfile是Docker用来构建镜像的脚本文件，包含自定义的指令和格式。用户可以用统一的语法命令来根据需求进行配置，在不同的平台上进行分发，简化开发人员构建镜像的复杂过程。  
+
+#### Dockerfile commands
+* COPY 复制文件
+* ADD 更高级的复制文件
+* CMD 容器启动命令
+* ENTRYPOINT 入口点
+* ENV 设置环境变量
+* ARG 构建参数
+* VOLUME 定义匿名卷
+* EXPOSE 暴露端口
+* WORKDIR 指定工作目录
+* USER 指定当前用户
+* HEALTHCHECK 健康检查
+* ONBUILD 为他人作嫁衣裳
+
+#### Practic
+```docker build -t ubuntu:nginx -f ./Dockerfile01 .```   
+```docker port``` 查看宿主分配的端口
+## Start your container
+```docker run -d -p 8080:80 --name nginx_test ubuntu:nginx``` 
+## Interact with your container
+```docker exec```
+```docker logs```
+
+# Other Topic
 ## Other docker command
 * ```docker top```
 * ```docker stats```
 * ```docker system```
 * ```docker info```
 
-## Build your own image
-* Docker commit  
-  ```docker commit -m "commit test" container-id image-name:tag```
-  
-* Docker build & Dockerfile
-Dockerfile是Docker用来构建镜像的脚本文件，包含自定义的指令和格式。用户可以用统一的语法命令来根据需求进行配置，在不同的平台上进行分发，简化开发人员构建镜像的复杂过程。  
-```docker build -t ubuntu:nginx -f ./Dockerfile01 .```  
-```docker run -d -p 8080:80 --name nginx_test ubuntu:nginx```  
-```docker port``` 查看宿主分配的端口
-## Start your container
-## Interact with your container
-
-# Other Topic
 ## Compare with VM
 
-![compare](images/dockerVsVM0.png)
-
 虚拟机和Docker都能够给一台宿主机上的应用提供隔离的运行环境。区别是什么呢？
+
+传统的虚拟机通过在宿主主机中运行 hypervisor 来模拟一整套完整的硬件环境提供给虚拟机的操作系统。虚拟机系统看到的环境是可限制的，也是彼此隔离的。 这种直接的做法实现了对资源最完整的封装，但很多时候往往意味着系统资源的浪费。 例如，以宿主机和虚拟机系统都为 Linux 系统为例，虚拟机中运行的应用其实可以利用宿主机系统中的运行环境。
+
+实际上在操作系统中，包括内核、文件系统、网络、PID、UID、IPC、内存、硬盘、CPU 等等，所有的资源都是应用进程直接共享的。 要想实现虚拟化，除了要实现对内存、CPU、网络IO、硬盘IO、存储空间等的限制外，还要实现文件系统、网络、PID、UID、IPC等等的相互隔离。 前者相对容易实现一些，后者则需要宿主机系统的深入支持。
+
+随着 Linux 系统对于命名空间功能的完善实现，程序员已经可以实现上面的所有需求，让某些进程在彼此隔离的命名空间中运行。大家虽然都共用一个内核和某些运行时环境（例如一些系统命令和系统库），但是彼此却看不到，都以为系统中只有自己的存在。这种机制就是容器（Container），利用命名空间来做权限的隔离控制，利用 cgroups 来做资源分配
+
+![compare](images/dockerVsVM0.png)
 
 从上图右边虚拟机架构图能看出，虚拟机里在宿主操作系统和物理硬件之间多了一个中间层：Hypervisor。
 
