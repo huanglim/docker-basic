@@ -10,13 +10,13 @@
 # Docker architecture
 
 ## Docker Engine
-Docker使用了传统的Client-Server架构, Docker daemon、Docker client与API共同组成Docker Engine。
+Docker使用了传统的Client-Server架构
 
-Docker daemon: Docker最核心的后台进程,一般运行在宿主机之上，负责响应来自Docker client的请求，根据请求类型创建出指定的Job，完成构建、分发和运行Docker容器的工作
+Docker 客户端(Client) : 通过命令行或者其他工具使用 [Docker API](https://docs.docker.com/reference/api/docker_remote_api) 与 Docker 的守护进程通信。
 
 Docker API: 负责提供client与docker daemon交互的接口。
 
-Docker 客户端(Client) : 通过命令行或者其他工具使用 [Docker API](https://docs.docker.com/reference/api/docker_remote_api) 与 Docker 的守护进程通信。
+Docker daemon: Docker最核心的后台进程,一般运行在宿主机之上，负责响应来自Docker client的请求，根据请求类型创建出指定的Job，完成构建、分发和运行Docker容器的工作
 
 ![docker engine](images/engine-components-flow.png)
 
@@ -39,9 +39,11 @@ Docker 仓库(Registry): 用来保存镜像，可以理解为代码控制中的�
 ## Docker image
 Docker镜像（Image）
 
-Docker镜像是由文件系统叠加而成。最底端是一个文件引导系统，即bootfs。Docker用户不会与引导文件系统有直接的交互。Docker镜像的第二层是root文件系统rootfs，通常是一种或多种操作系统，例如ubuntu等。在Docker中，文件系统永远都是只读的，在每次修改时，都是进行拷贝叠加从而形成最终的文件系统。Docker称这样的文件为镜像。一个镜像可以迭代在另一个镜像的顶部。位于下方的镜像称之为父镜像，最底层的镜像称之为基础镜像。最后，当从一个镜像启动容器时，Docker会在最顶层加载一个读写文件系统作为容器。
+Docker 镜像是一个特殊的文件系统，除了提供容器运行时所需的程序、库、资源、配置等文件外，还包含了一些为运行时准备的一些配置参数（如匿名卷、环境变量、用户等）。
 
-镜像是不会改变的, 如果文件系统需要发生改变, 变化会应用到最顶层, 也就是读写系统的容器.这种机制也被称为写时复制( copy on write)
+Docker镜像的文件系统最底端是一个文件引导系统，Docker用户不会与引导文件系统有直接的交互。Docker镜像的第二层是root文件系统rootfs，通常是一种或多种操作系统，例如ubuntu等。在Docker中，文件系统永远都是只读的，在每次修改时，都是进行拷贝叠加从而形成最终的文件系统。Docker称这样的文件为镜像。一个镜像可以迭代在另一个镜像的顶部。位于下方的镜像称之为父镜像，最底层的镜像称之为基础镜像。最后，当从一个镜像启动容器时，Docker会在最顶层加载一个读写文件系统作为容器存储层。
+
+镜像是不会改变的, 如果文件系统需要发生改变, 变化会应用到最顶层, 也就是读写系统的容器.这种机制也被称为写时复制( copy on write).
 
 ![Docker Image](./images/docker_file_system.jfif)
 
@@ -64,19 +66,37 @@ Docker镜像是由文件系统叠加而成。最底端是一个文件引导系�
 ## Docker container
 容器（Container）
 
-容器是Docker镜像创建的实例，是静态镜像的运行时的实体。其本质是一个与宿主机系统共享内核但与系统中的其他进程资源相隔离的进程，它可以被启动、停止、删除。容器中会运行特定的应用，包含代码和相关的依赖文件。每个运行着的容器都有一个可写层（writable layer,也称为容器层 container layer），它位于若干只读层之上。运行时的所有变化，包括对文件的写和更新，都会保存在这个层中。
+镜像（Image）和容器（Container）的关系，就像是面向对象程序设计中的 类 和 实例 一样，镜像是静态的定义，容器是镜像运行时的实体。容器可以被创建、启动、停止、删除、暂停等。
+
+容器的实质是进程，但与直接在宿主执行的进程不同，容器进程运行于属于自己的独立的 命名空间。因此容器可以拥有自己的 root 文件系统、自己的网络配置、自己的进程空间，甚至自己的用户 ID 空间。容器内的进程是运行在一个隔离的环境里，使用起来，就好像是在一个独立于宿主的系统下操作一样。这种特性使得容器封装的应用比直接在宿主运行更加安全。
+
+前面讲过镜像使用的是分层存储，容器也是如此。每一个容器运行时，是以镜像为基础层，在其上创建一个当前容器的存储层，它是一个可写层（writable layer,也称为容器层 container layer），它位于若干只读层之上。运行时的所有变化，包括对文件的写和更新，都会保存在这个层中。
+
+容器不应该向其存储层内写入任何数据，容器存储层要保持无状态化。所有的文件写入操作，都应该使用 数据卷（Volume）、或者绑定宿主目录，在这些位置的读写会跳过容器存储层，直接对宿主（或网络存储）发生读写，其性能和稳定性更高。
+
+数据卷的生存周期独立于容器，容器消亡，数据卷不会消亡。因此，使用数据卷后，容器删除或者重新运行之后，数据却不会丢失。
 ### container commands
 ![container-lifecycle](images/container_lifecycle.png)
 1. ```docker run``` 运行容器  
-   ```docker run -ti --name my_container --restart=on-failure:1 alpine /bin/sh -c "while true; do echo hello world; sleep 1; done"``` 使用镜像运行一个容器
-   ```-d ``` 后台运行
+   ```docker run -ti --name my_container --restart=on-failure:1 alpine /bin/sh -c "while true; do echo hello world; sleep 1; done"``` 使用镜像运行一个容器  
+   ```-d ``` 后台运行  
    ```-p -P``` 指定端口
-   ```-v``` 使用持久化的存储
-2. ```docker ps``` 查看所有的容器 和 ```docker container ls```同效
-3. ```docker attach``` 重新附着容器
-4. ```docker exec``` 在容器内容启动新进程
+   ```-v``` 使用持久化的存储  
+
+    当利用 docker run 来创建容器时，Docker 在后台运行的标准操作包括：
+
+     - 检查本地是否存在指定的镜像，不存在就从公有仓库下载  
+     - 利用镜像创建并启动一个容器  
+     - 分配一个文件系统，并在只读的镜像层外面挂载一层可读写层  
+     - 从宿主主机配置的网桥接口中桥接一个虚拟接口到容器中去  
+     - 从地址池配置一个 ip 地址给容器  
+     - 执行用户指定的应用程序  
+     - 执行完毕后容器被终止  
+2. ```docker ps``` 查看所有的容器 和 ```docker container ls```同效  
+3. ```docker attach``` 重新附着容器  
+4. ```docker exec``` 在容器内容启动新进程  
 5. 生命周期管理， 暂停，恢复，停止，启动 pause, unpause, stop, start
-6. ```docker logs``` 查看log
+6. ```docker logs``` 查看log  
 7. ```docker inspect``` 检查某个具体的容器
 8. ```docker rm``` 删除容器
 9. ```docker commit```，对容器做了修改后，把改动后的容器，再次转换为镜像
@@ -101,29 +121,53 @@ Docker镜像是由文件系统叠加而成。最底端是一个文件引导系�
 Dockerfile是Docker用来构建镜像的脚本文件，包含自定义的指令和格式。用户可以用统一的语法命令来根据需求进行配置，在不同的平台上进行分发，简化开发人员构建镜像的复杂过程。  
 
 #### Dockerfile commands
-* COPY 复制文件
-* ADD 更高级的复制文件
-* CMD 容器启动命令
+* COPY 复制文件  
+  COPY [--chown=<user>:<group>] <源路径>... <目标路径>  
+  COPY [--chown=<user>:<group>] ["<源路径1>",... "<目标路径>"]
+* CMD 容器启动命令  
+  shell 格式：CMD <命令>  
+  exec 格式：CMD ["可执行文件", "参数1", "参数2"...]  
+  参数列表格式：CMD ["参数1", "参数2"...]。在指定了 ENTRYPOINT 指令后，用 CMD 指定具体的参数。
+  CMD的命令会被run 的执行cmd命令默认覆盖
 * ENTRYPOINT 入口点
+  当存在 ENTRYPOINT 后，执行时的CMD 的内容将会作为参数传给 ENTRYPOINT
 * ENV 设置环境变量
-* ARG 构建参数
-* VOLUME 定义匿名卷
 * EXPOSE 暴露端口
 * WORKDIR 指定工作目录
 * USER 指定当前用户
-* HEALTHCHECK 健康检查
-* ONBUILD 为他人作嫁衣裳
 
 #### Practic
+1. 通过```docker pull ubuntu``` 获取最新版本的ubuntu官方镜像
+2. 以这个镜像为基础, 通过Dockerfile build自己的镜像   
 ```docker build -t ubuntu:nginx -f ./Dockerfile01 .```   
-```docker port``` 查看宿主分配的端口
+
 ## Start your container
-```docker run -d -p 8080:80 --name nginx_test ubuntu:nginx``` 
+```docker run -d -p 80 --name nginx_test ubuntu:nginx```   
+```docker port``` 查看宿主分配的端口
+
 ## Interact with your container
-```docker exec```
+```docker exec```  
 ```docker logs```
 
 # Other Topic
+
+## Docker network
+当 Docker 启动时，会自动在主机上创建一个 docker0 虚拟网桥，实际上是 Linux 的一个 bridge，可以理解为一个软件交换机。它会在挂载到它的网口之间进行转发.
+
+同时，Docker 随机分配一个本地未占用的私有网段（在 RFC1918 中定义）中的一个地址给 docker0 接口。比如典型的 172.17.42.1，掩码为 255.255.0.0。此后启动的容器内的网口也会自动分配一个同一网段（172.17.0.0/16）的地址。在Windows 平台分配会有不同
+
+当创建一个 Docker 容器的时候，同时会创建了一对 veth pair 接口（当数据包发送到一个接口时，另外一个接口也可以收到相同的数据包）。这对接口一端在容器内，即 eth0；另一端在本地并被挂载到 docker0 网桥，名称以 veth 开头（例如 vethAQI2QT）。通过这种方式，主机可以跟容器通信，容器之间也可以相互通信。Docker 就创建了在主机和所有容器之间一个虚拟共享网络。
+
+![network](images/network.png)
+
+### Docker Networking
+用于容器相互之间通信
+```docker network create testnet```
+```docker network ls```  
+通过 ```docker run --net=testnet```将容器指定到某一网络
+
+```--link``` 1.9版本之前的推荐
+
 ## Other docker command
 * ```docker top```
 * ```docker stats```
