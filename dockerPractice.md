@@ -1,5 +1,8 @@
 # Docker introduction
-* Docker 是一个开源的应用容器引擎, 它基于 Go 语言开发并遵从Apache2.0协议开源。
+* Docker 是一个开源的应用容器引擎, 最初是 dotCloud 公司创始人 Solomon Hykes 在法国期间发起的一个公司内部项目，它是基于 dotCloud 公司多年云服务技术的一次革新，并于 2013 年 3 月以 Apache 2.0 授权协议开源，主要项目代码在 GitHub 上进行维护。Docker 项目后来还加入了 Linux 基金会，并成立推动 开放容器联盟（OCI）
+  
+* Docker 使用 Google 公司推出的 Go 语言 进行开发实现，基于 Linux 内核的 cgroup，namespace，以及 AUFS 类的 Union FS 等技术，对进程进行封装隔离，属于操作系统层面的虚拟化技术。由于隔离的进程独立于宿主和其它的隔离的进程，因此也称其为容器。最初实现是基于 LXC，从 0.7 版本以后开始去除 LXC，转而使用自行开发的 libcontainer，从 1.11 开始，则进一步演进为使用 runC 和 containerd.
+  
 * Docker 的使用场景: 
   * 创建一致的开发、测试、生产环境；
   * 创建资源隔离的运行时环境；
